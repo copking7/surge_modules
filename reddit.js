@@ -1,5 +1,5 @@
 #!name=Reddit 网页翻译参数
-#!desc=仅为 Reddit 帖子页翻译
+#!desc=仅为 Reddit 帖子页的外部顶层导航追加 tl=zh-hans
 #!category=reddit
 
 [General]

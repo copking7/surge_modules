@@ -28,12 +28,11 @@ function delHeader(headers, name) {
 let headers = $request.headers || {};
 const incoming = getHeader(headers, "x-reddit-translations");
 
-// 1. 如果客户端/网页这次自己明确带了值，优先尊重它
+// 如果这次请求本身就带了 x-reddit-translations
 if (incoming !== null && incoming !== undefined) {
   const v = String(incoming).trim().toLowerCase();
 
-  // 这里先按“包含 enabled 就视为开”处理
-  // 如果你抓包后发现 Reddit 关闭态是某个固定字符串，再精确改这里
+  // 这里先按“包含 enabled 就视为开启”处理
   if (v.includes("enabled")) {
     $persistentStore.write("on", STORE_KEY);
   } else {
@@ -41,16 +40,15 @@ if (incoming !== null && incoming !== undefined) {
   }
 
   $done({ headers });
-  return;
-}
-
-// 2. 没有显式头时，按本地持久化状态决定
-const mode = $persistentStore.read(STORE_KEY) || "on";
-
-if (mode === "on") {
-  setHeader(headers, "x-reddit-translations", FORCE_VALUE);
 } else {
-  delHeader(headers, "x-reddit-translations");
-}
+  // 如果请求本身没带头，就按本地保存状态决定
+  const mode = $persistentStore.read(STORE_KEY) || "on";
 
-$done({ headers });
+  if (mode === "on") {
+    setHeader(headers, "x-reddit-translations", FORCE_VALUE);
+  } else {
+    delHeader(headers, "x-reddit-translations");
+  }
+
+  $done({ headers });
+}

@@ -1,32 +1,56 @@
-const url = new URL($request.url);
-const path = url.pathname;
-const method = ($request.method || "GET").toUpperCase();
-const headers = $request.headers || {};
+const STORE_KEY = "reddit_translation_mode";
+const FORCE_VALUE = "enabled,seo,zh-hans";
 
-if (method !== "GET") { $done({}); return; }
-
-// 只处理帖子详情页
-if (!/^\/r\/[^/]+\/comments\/[^/]+(?:\/[^/]*)?\/?$/.test(path)) {
-  $done({}); return;
+function findHeaderKey(headers, name) {
+  const lower = name.toLowerCase();
+  return Object.keys(headers || {}).find(k => k.toLowerCase() === lower);
 }
 
-// 已有 tl 不动
-if (url.searchParams.has("tl")) { $done({}); return; }
+function getHeader(headers, name) {
+  const key = findHeaderKey(headers, name);
+  return key ? headers[key] : null;
+}
 
-// 必须是真正的文档导航
-const mode = (headers["sec-fetch-mode"] || headers["Sec-Fetch-Mode"] || "").toLowerCase();
-const dest = (headers["sec-fetch-dest"] || headers["Sec-Fetch-Dest"] || "").toLowerCase();
-if (mode && mode !== "navigate") { $done({}); return; }
-if (dest && dest !== "document") { $done({}); return; }
-
-// 只在跨站进入(Google 等)时注入,站内点击走 Reddit 自己的 SPA,避免抢路由
-const site = (headers["sec-fetch-site"] || headers["Sec-Fetch-Site"] || "").toLowerCase();
-if (site && site !== "cross-site" && site !== "none") { $done({}); return; }
-
-url.searchParams.set("tl", "zh-hans");
-$done({
-  response: {
-    status: 302,
-    headers: { Location: url.toString() }
+function setHeader(headers, name, value) {
+  const key = findHeaderKey(headers, name);
+  if (key) {
+    headers[key] = value;
+  } else {
+    headers[name] = value;
   }
-});
+}
+
+function delHeader(headers, name) {
+  const key = findHeaderKey(headers, name);
+  if (key) delete headers[key];
+}
+
+let headers = $request.headers || {};
+const incoming = getHeader(headers, "x-reddit-translations");
+
+// 1. 如果客户端/网页这次自己明确带了值，优先尊重它
+if (incoming !== null && incoming !== undefined) {
+  const v = String(incoming).trim().toLowerCase();
+
+  // 这里先按“包含 enabled 就视为开”处理
+  // 如果你抓包后发现 Reddit 关闭态是某个固定字符串，再精确改这里
+  if (v.includes("enabled")) {
+    $persistentStore.write("on", STORE_KEY);
+  } else {
+    $persistentStore.write("off", STORE_KEY);
+  }
+
+  $done({ headers });
+  return;
+}
+
+// 2. 没有显式头时，按本地持久化状态决定
+const mode = $persistentStore.read(STORE_KEY) || "on";
+
+if (mode === "on") {
+  setHeader(headers, "x-reddit-translations", FORCE_VALUE);
+} else {
+  delHeader(headers, "x-reddit-translations");
+}
+
+$done({ headers });

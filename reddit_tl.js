@@ -3,45 +3,67 @@ const path = url.pathname;
 const method = ($request.method || "GET").toUpperCase();
 const headers = $request.headers || {};
 
-// 只处理 GET
+function h(name) {
+  return String(
+    headers[name] ??
+    headers[name.toLowerCase()] ??
+    headers[name.toUpperCase()] ??
+    ""
+  ).toLowerCase();
+}
+
+const accept = h("accept");
+const secFetchMode = h("sec-fetch-mode");
+const secFetchDest = h("sec-fetch-dest");
+const secFetchUser = h("sec-fetch-user");
+const secFetchSite = h("sec-fetch-site");
+
+// 1) 只处理 GET
 if (method !== "GET") {
   $done({});
-  return;
 }
 
-// 只处理帖子详情页
+// 2) 只处理帖子详情页
 if (!/^\/r\/[^/]+\/comments\/[^/]+(?:\/[^/]*)?\/?$/.test(path)) {
   $done({});
-  return;
 }
 
-// 已有 tl 参数就不再追加(防止 302 循环)
+// 3) 已有 tl 就不再追加
 if (url.searchParams.has("tl")) {
   $done({});
-  return;
 }
 
-// 只在"主文档导航"时动手,partial / xhr / fetch / iframe 一律放过
-const secFetchMode = (headers["sec-fetch-mode"] || headers["Sec-Fetch-Mode"] || "").toLowerCase();
-const secFetchDest = (headers["sec-fetch-dest"] || headers["Sec-Fetch-Dest"] || "").toLowerCase();
-
-// 收紧判定:必须是 navigate + document 才改
-if (secFetchMode && secFetchMode !== "navigate") {
+// 4) 必须是顶层页面导航
+if (secFetchMode !== "navigate") {
   $done({});
-  return;
-}
-if (secFetchDest && secFetchDest !== "document") {
-  $done({});
-  return;
 }
 
-// 用 302 让浏览器自己跳,而不是 Surge 内部 replay
+if (secFetchDest !== "document") {
+  $done({});
+}
+
+if (secFetchUser !== "?1") {
+  $done({});
+}
+
+// 5) 必须是标准 HTML 文档请求，不是 partial / hybrid
+if (!accept.includes("text/html")) {
+  $done({});
+}
+
+if (accept.includes("text/vnd.reddit.partial+html")) {
+  $done({});
+}
+
+if (accept.includes("text/vnd.reddit.hybrid+html")) {
+  $done({});
+}
+
+// 6) same-origin 的站内前端导航也跳过，只处理更像“手动打开”的请求
+if (secFetchSite === "same-origin") {
+  $done({});
+}
+
+// 7) 追加 tl
 url.searchParams.set("tl", "zh-hans");
-$done({
-  response: {
-    status: 302,
-    headers: {
-      Location: url.toString()
-    }
-  }
-});
+$done({ url: url.toString() });

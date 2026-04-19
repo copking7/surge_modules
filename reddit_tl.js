@@ -1,25 +1,28 @@
 const url = new URL($request.url);
 const path = url.pathname;
 const method = ($request.method || "GET").toUpperCase();
+const headers = $request.headers || {};
 
 // 只处理 GET
 if (method !== "GET") {
   $done({});
 }
 
-// 只处理 subreddit 首页
-const isSubreddit = /^\/r\/[^/]+\/?$/.test(path);
-
 // 只处理帖子详情页
-const isPost = /^\/r\/[^/]+\/comments\/[^/]+(?:\/[^/]*)?\/?$/.test(path);
-
-// 其它页面一律不处理
-if (!isSubreddit && !isPost) {
+if (!/^\/r\/[^/]+\/comments\/[^/]+(?:\/[^/]*)?\/?$/.test(path)) {
   $done({});
 }
 
-// 已经带 tl 参数就不再追加
+// 已有 tl 参数就不再追加
 if (url.searchParams.has("tl")) {
+  $done({});
+}
+
+// 跳过 Reddit 前端内部的同源异步请求
+const secFetchMode = (headers["sec-fetch-mode"] || headers["Sec-Fetch-Mode"] || "").toLowerCase();
+const secFetchDest = (headers["sec-fetch-dest"] || headers["Sec-Fetch-Dest"] || "").toLowerCase();
+
+if (secFetchMode === "cors" && secFetchDest === "empty") {
   $done({});
 }
 

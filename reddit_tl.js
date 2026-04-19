@@ -17,53 +17,52 @@ const secFetchMode = h("sec-fetch-mode");
 const secFetchDest = h("sec-fetch-dest");
 const secFetchUser = h("sec-fetch-user");
 const secFetchSite = h("sec-fetch-site");
+const referer = h("referer");
 
-// 1) 只处理 GET
+// 只处理 GET
 if (method !== "GET") {
   $done({});
 }
 
-// 2) 只处理帖子详情页
+// 只处理帖子页
 if (!/^\/r\/[^/]+\/comments\/[^/]+(?:\/[^/]*)?\/?$/.test(path)) {
   $done({});
 }
 
-// 3) 已有 tl 就不再追加
+// 已有 tl 就不加
 if (url.searchParams.has("tl")) {
   $done({});
 }
 
-// 4) 必须是顶层页面导航
+// 必须是外部顶层导航
+if (secFetchSite !== "cross-site") {
+  $done({});
+}
 if (secFetchMode !== "navigate") {
   $done({});
 }
-
 if (secFetchDest !== "document") {
   $done({});
 }
-
 if (secFetchUser !== "?1") {
   $done({});
 }
 
-// 5) 必须是标准 HTML 文档请求，不是 partial / hybrid
+// 必须是标准整页 HTML 请求
 if (!accept.includes("text/html")) {
   $done({});
 }
-
 if (accept.includes("text/vnd.reddit.partial+html")) {
   $done({});
 }
-
 if (accept.includes("text/vnd.reddit.hybrid+html")) {
   $done({});
 }
 
-// 6) same-origin 的站内前端导航也跳过，只处理更像“手动打开”的请求
-if (secFetchSite === "same-origin") {
+// 可选：要求 referer 不是 reddit 自己
+if (referer.includes("reddit.com")) {
   $done({});
 }
 
-// 7) 追加 tl
 url.searchParams.set("tl", "zh-hans");
 $done({ url: url.toString() });

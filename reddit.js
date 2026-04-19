@@ -1,13 +1,7 @@
-#!name=Reddit 自动翻译
-#!desc=为 Reddit 强制开启翻译
+#!name=Reddit 网页翻译参数
+#!desc=访问 Reddit 网页时自动追加 tl=zh-hans
 #!category=reddit
 
-[General]
-force-http-engine-hosts = %APPEND% gql-fed.reddit.com
-
-[MITM]
-hostname = %APPEND%, gql-fed.reddit.com
-
-[Header Rewrite]
-^https:\/\/gql-fed\.reddit\.com header-del x-reddit-translations
-^https:\/\/gql-fed\.reddit\.com header-add x-reddit-translations "enabled,seo,zh-hans"
+[URL Rewrite]
+^https:\/\/www\.reddit\.com\/([^?]+)$ https://www.reddit.com/$1?tl=zh-hans 302
+^https:\/\/www\.reddit\.com\/([^?]+)\?((?!.*(?:^|&)tl=).*)$ https://www.reddit.com/$1?$2&tl=zh-hans 302

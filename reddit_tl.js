@@ -3,66 +3,30 @@ const path = url.pathname;
 const method = ($request.method || "GET").toUpperCase();
 const headers = $request.headers || {};
 
-function h(name) {
-  return String(
-    headers[name] ??
-    headers[name.toLowerCase()] ??
-    headers[name.toUpperCase()] ??
-    ""
-  ).toLowerCase();
-}
+if (method !== "GET") { $done({}); return; }
 
-const accept = h("accept");
-const secFetchMode = h("sec-fetch-mode");
-const secFetchDest = h("sec-fetch-dest");
-const secFetchUser = h("sec-fetch-user");
-const secFetchSite = h("sec-fetch-site");
-const referer = h("referer");
-
-// 只处理 GET
-if (method !== "GET") {
-  $done({});
-}
-
-// 只处理帖子页
+// 只处理帖子详情页
 if (!/^\/r\/[^/]+\/comments\/[^/]+(?:\/[^/]*)?\/?$/.test(path)) {
-  $done({});
+  $done({}); return;
 }
 
-// 已有 tl 就不加
-if (url.searchParams.has("tl")) {
-  $done({});
-}
+// 已有 tl 不动
+if (url.searchParams.has("tl")) { $done({}); return; }
 
-// 必须是外部顶层导航
-if (secFetchSite !== "cross-site") {
-  $done({});
-}
-if (secFetchMode !== "navigate") {
-  $done({});
-}
-if (secFetchDest !== "document") {
-  $done({});
-}
-if (secFetchUser !== "?1") {
-  $done({});
-}
+// 必须是真正的文档导航
+const mode = (headers["sec-fetch-mode"] || headers["Sec-Fetch-Mode"] || "").toLowerCase();
+const dest = (headers["sec-fetch-dest"] || headers["Sec-Fetch-Dest"] || "").toLowerCase();
+if (mode && mode !== "navigate") { $done({}); return; }
+if (dest && dest !== "document") { $done({}); return; }
 
-// 必须是标准整页 HTML 请求
-if (!accept.includes("text/html")) {
-  $done({});
-}
-if (accept.includes("text/vnd.reddit.partial+html")) {
-  $done({});
-}
-if (accept.includes("text/vnd.reddit.hybrid+html")) {
-  $done({});
-}
-
-// 可选：要求 referer 不是 reddit 自己
-if (referer.includes("reddit.com")) {
-  $done({});
-}
+// 只在跨站进入(Google 等)时注入,站内点击走 Reddit 自己的 SPA,避免抢路由
+const site = (headers["sec-fetch-site"] || headers["Sec-Fetch-Site"] || "").toLowerCase();
+if (site && site !== "cross-site" && site !== "none") { $done({}); return; }
 
 url.searchParams.set("tl", "zh-hans");
-$done({ url: url.toString() });
+$done({
+  response: {
+    status: 302,
+    headers: { Location: url.toString() }
+  }
+});
